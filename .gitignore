@@ -9,7 +9,7 @@
 *#
 *~
 MANIFEST
-_trial_temp
+_trial_temp*
 dist
 build
 .build
@@ -24,3 +24,6 @@ docs/images/slavebuilder.png
 docs/images/slaves.png
 docs/images/status.png
 .stgit-edit.txt
+.project
+.pydevproject
+.settings

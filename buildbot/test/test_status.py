@@ -10,10 +10,12 @@ from twisted.trial import unittest
 from buildbot import interfaces
 from buildbot.sourcestamp import SourceStamp
 from buildbot.process.base import BuildRequest, Build
-from buildbot.status import builder, base, words, progress
+from buildbot.status import builder, base, words
 from buildbot.changes.changes import Change
 from buildbot.process.builder import Builder
 from time import sleep
+
+import jinja2
 
 import sys
 if sys.version_info[:3] < (2,4,0):
@@ -24,6 +26,7 @@ try:
     from buildbot.status import mail
 except ImportError:
     pass
+
 from buildbot.status import progress, client # NEEDS COVERAGE
 from buildbot.test.runutils import RunMixin, setupBuildStepStatus, rmtree
 
@@ -150,12 +153,21 @@ def customTextMailMessage(attrs):
     return ("\n".join(text), 'plain')
 
 def customHTMLMailMessage(attrs):
+    loader = jinja2.PackageLoader('buildbot.status.web', 'templates')
+    templates = jinja2.Environment(loader=loader,
+                                extensions=['jinja2.ext.i18n'],
+                                trim_blocks=True)
+    template = templates.get_template("change.html")
+
+    
     logLines = 3
     text = list()
     text.append("<h3>STATUS <a href='%s'>%s</a>:</h3>" % (attrs['buildURL'],
                                                           attrs['result'].title()))
-    text.append("<h4>Recent Changes:</h4>")
-    text.extend([c.asHTML() for c in attrs['changes']])
+    text.append("<h4>Recent Changes:</h4>")   
+    for c in attrs['changes']: 
+        text.append(template.module.change(**c.html_dict()))
+                    
     name, url, lines, status = attrs['logs'][-1]
     text.append("<h4>Last %d lines of '%s':</h4>" % (logLines, name))
     text.append("<p>")
@@ -378,7 +390,7 @@ class Mail(unittest.TestCase):
         #
         #self.fail(t)
         self.failUnlessIn("<h4>Last 3 lines of 'step.test':</h4>", t)
-        self.failUnlessIn("<p>Changed by: <b>author2</b><br />", t)
+        self.failUnlessIn("Changed by: <b>author2</b>", t)
         self.failUnlessIn("Test 3 failed", t)
         self.failUnlessIn("number was: 1", t)
 
@@ -672,11 +684,11 @@ class Log(unittest.TestCase):
     def testMerge2(self):
         l = MyLog(self.basedir, "merge2")
         l.addHeader("HEADER\n")
-        for i in xrange(1000):
+        for _ in xrange(1000):
             l.addStdout("aaaa")
-        for i in xrange(30):
+        for _ in xrange(30):
             l.addStderr("bbbb")
-        for i in xrange(10):
+        for _ in xrange(10):
             l.addStdout("cc")
         target = 1000*"aaaa" + 30 * "bbbb" + 10 * "cc"
         self.failUnlessEqual(len(l.getText()), len(target))
@@ -690,9 +702,9 @@ class Log(unittest.TestCase):
         l = MyLog(self.basedir, "merge3")
         l.chunkSize = 100
         l.addHeader("HEADER\n")
-        for i in xrange(8):
+        for _ in xrange(8):
             l.addStdout(10*"a")
-        for i in xrange(8):
+        for _ in xrange(8):
             l.addStdout(10*"a")
         self.failUnlessEqual(list(l.getChunks()),
                              [(builder.HEADER, "HEADER\n"),
@@ -874,8 +886,7 @@ class Log(unittest.TestCase):
         l2.addStdout(800*"a") # should now have two chunks on disk, 1000+600
         l2.addStdout(800*"b") # HEADER,1000+600*a on disk, 800*a in memory
         l2.addStdout(800*"b") # HEADER,1000+600*a,1000+600*b on disk
-        l2.addStdout(200*"c") # HEADER,1000+600*a,1000+600*b on disk,
-                              # 200*c in memory
+        l2.addStdout(200*"c") # HEADER,1000+600*a,1000+600*b on disk, 200*c in memory
         
         s = MyLogConsumer(limit=1)
         d = l2.subscribeConsumer(s)
@@ -957,7 +968,7 @@ class Log(unittest.TestCase):
 class CompressLog(unittest.TestCase):
     # compression is not supported unless bz2 is installed
     try:
-        import bz2
+        import bz2 #@UnusedImport
     except:
         skip = "compression not supported (no bz2 module available)"
 

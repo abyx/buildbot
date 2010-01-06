@@ -197,6 +197,76 @@ class Source(LoggingBuildStep):
 
 
 
+class BK(Source):
+    """I perform BitKeeper checkout/update operations."""
+    
+    name = 'bk'
+    
+    def __init__(self, bkurl=None, baseURL=None,
+                 directory=None, extra_args=None, **kwargs):
+        """
+        @type  bkurl: string
+        @param bkurl: the URL which points to the BitKeeper server.
+                 
+        @type  baseURL: string
+        @param baseURL: if branches are enabled, this is the base URL to
+                        which a branch name will be appended. It should
+                        probably end in a slash. Use exactly one of
+                        C{bkurl} and C{baseURL}.
+        """
+                        
+        self.bkurl = bkurl
+        self.baseURL = baseURL
+        self.extra_args = extra_args
+        
+        Source.__init__(self, **kwargs)
+        self.addFactoryArguments(bkurl=bkurl,
+                                 baseURL=baseURL,
+                                 directory=directory,
+                                 extra_args=extra_args,
+                                 )
+                      
+        if not bkurl and not baseURL:
+            raise ValueError("you must use exactly one of bkurl and baseURL")
+        
+        
+    def computeSourceRevision(self, changes):
+        return changes.revision
+                       
+                       
+    def startVC(self, branch, revision, patch):
+
+        warnings = []
+        slavever = self.slaveVersion("bk")
+        if not slavever:
+            m = "slave does not have the 'bk' command"
+            raise BuildSlaveTooOldError(m)
+
+        if self.bkurl:
+            assert not branch # we need baseURL= to use branches
+            self.args['bkurl'] = self.bkurl
+        else:
+            self.args['bkurl'] = self.baseURL + branch
+        self.args['revision'] = revision
+        self.args['patch'] = patch
+        self.args['branch'] = branch
+        if self.extra_args is not None:
+            self.args['extra_args'] = self.extra_args
+
+        revstuff = []
+        revstuff.append("[branch]")
+        if revision is not None:
+            revstuff.append("r%s" % revision)
+        if patch is not None:
+            revstuff.append("[patch]")
+        self.description.extend(revstuff)
+        self.descriptionDone.extend(revstuff)
+
+        cmd = LoggedRemoteCommand("bk", self.args)
+        self.startCommand(cmd, warnings)
+
+
+
 class CVS(Source):
     """I do CVS checkout/update operations.
 
@@ -408,7 +478,7 @@ class SVN(Source):
         self.keep_on_purge = keep_on_purge
         self.ignore_ignores = ignore_ignores
         self.always_purge = always_purge
-	self.depth = depth
+        self.depth = depth
 
         Source.__init__(self, **kwargs)
         self.addFactoryArguments(svnurl=svnurl,
@@ -493,16 +563,16 @@ class SVN(Source):
         self.args['revision'] = revision
         self.args['patch'] = patch
 
-	#Set up depth if specified
-	if self.depth is not None:
-		if self.slaveVersionIsOlderThan("svn","2.9"):
-			m = ("This buildslave (%s) does not support svn depth "
+        #Set up depth if specified
+        if self.depth is not None:
+            if self.slaveVersionIsOlderThan("svn","2.9"):
+                m = ("This buildslave (%s) does not support svn depth "
 			     "arguments.  "
 			     "Refusing to build. "
 			     "Please upgrade the buildslave." % (self.build.slavename))
-                	raise BuildSlaveTooOldError(m)
-		else: 
-			self.args['depth'] = self.depth
+                raise BuildSlaveTooOldError(m)
+            else: 
+                self.args['depth'] = self.depth
 
         if self.username is not None or self.password is not None:
             if self.slaveVersionIsOlderThan("svn", "2.8"):

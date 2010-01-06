@@ -753,13 +753,13 @@ class VCBase(SignalMixin):
         s += ")"
         self.config = config_vc % s
         if type == PATCHLEVEL0:
-          self.patch = (0, p0_diff)
+            self.patch = (0, p0_diff)
         elif type == SUBDIR_ROOT:
-          self.patch = (0, subdir_diff, 'subdir')
+            self.patch = (0, subdir_diff, 'subdir')
         elif type == PATCHLEVEL2:
-          self.patch = (2, p2_diff)
+            self.patch = (2, p2_diff)
         else:
-          raise NotImplementedError
+            raise NotImplementedError
         m.loadConfig(self.config % "clobber")
         m.readConfig = True
         m.startService()
@@ -2245,7 +2245,6 @@ class Bazaar(Arch):
         self.serveHTTP()
 
         # break the repository server
-        from twisted.web import static
         self.site.resource = static.Data("Sorry, repository is offline",
                                          "text/plain")
         # and arrange to fix it again in 5 seconds, while the test is
@@ -2277,7 +2276,6 @@ class Bazaar(Arch):
         self.serveHTTP()
 
         # break the repository server, and leave it broken
-        from twisted.web import static
         self.site.resource = static.Data("Sorry, repository is offline",
                                          "text/plain")
 
@@ -2468,7 +2466,6 @@ class Bzr(VCBase, unittest.TestCase):
         self.serveHTTP()
 
         # break the repository server
-        from twisted.web import static
         self.site.resource = static.Data("Sorry, repository is offline",
                                          "text/plain")
         # and arrange to fix it again in 5 seconds, while the test is
@@ -2498,7 +2495,6 @@ class Bzr(VCBase, unittest.TestCase):
         self.serveHTTP()
 
         # break the repository server, and leave it broken
-        from twisted.web import static
         self.site.resource = static.Data("Sorry, repository is offline",
                                          "text/plain")
 

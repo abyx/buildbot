@@ -277,6 +277,20 @@ class Maker:
                 print "populating %s" % target
             open(target, "wt").write(new_contents)
 
+    def move_if_present(self, source, dest):
+        if os.path.exists(source):
+            if os.path.exists(dest):
+                print "Notice: %s now overrides %s" % (dest, source)
+                print "        as the latter is not used by buildbot anymore."  
+                print "        Decide which one you want to keep."
+            else:
+                try:
+                    print "Notice: Moving %s to %s." % (source, dest)
+                    print "        You can (and probably want to) remove it if  you haven't modified this file."
+                    os.renames(source, dest)
+                except Exception, e:
+                    print "Error moving %s to %s: %s" % (source, dest, str(e))
+
     def upgrade_public_html(self, files):
         webdir = os.path.join(self.basedir, "public_html")
         if not os.path.exists(webdir):
@@ -371,14 +385,17 @@ def upgradeMaster(config):
     # check web files: index.html, default.css, robots.txt
     webdir = os.path.join(basedir, "public_html")
     m.upgrade_public_html({
-          'index.html' : util.sibpath(__file__, "../status/web/index.html"),
           'bg_gradient.jpg' : util.sibpath(__file__, "../status/web/bg_gradient.jpg"),
-          'buildbot.css' : util.sibpath(__file__, "../status/web/default.css"),
+          'default.css' : util.sibpath(__file__, "../status/web/default.css"),
           'robots.txt' : util.sibpath(__file__, "../status/web/robots.txt"),
       })
     m.populate_if_missing(os.path.join(basedir, "master.cfg.sample"),
                           util.sibpath(__file__, "sample.cfg"),
                           overwrite=True)
+    # if index.html exists, use it to override the root page tempalte
+    m.move_if_present(os.path.join(basedir, "public_html/index.html"),
+                      os.path.join(basedir, "templates/root.html"))
+    
     rc = m.check_master_cfg()
     if rc:
         return rc
@@ -453,9 +470,8 @@ def createMaster(config):
     m.makeTAC(contents)
     m.sampleconfig(util.sibpath(__file__, "sample.cfg"))
     m.public_html({
-          'index.html' : util.sibpath(__file__, "../status/web/index.html"),
           'bg_gradient.jpg' : util.sibpath(__file__, "../status/web/bg_gradient.jpg"),
-          'buildbot.css' : util.sibpath(__file__, "../status/web/default.css"),
+          'default.css' : util.sibpath(__file__, "../status/web/default.css"),
           'robots.txt' : util.sibpath(__file__, "../status/web/robots.txt"),
       })
     m.makefile()
@@ -884,6 +900,7 @@ class TryOptions(OptionsWithOptionsFile):
     optFlags = [
         ["wait", None, "wait until the builds have finished"],
         ["dryrun", 'n', "Gather info, but don't actually submit."],
+        ["get-builder-names", None, "Get the names of available builders. Doesn't submit anything. Only supported for 'pb' connections."],
         ]
 
     # here it is, the definitive, quirky mapping of .buildbot/options names to

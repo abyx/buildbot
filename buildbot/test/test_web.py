@@ -196,7 +196,7 @@ class Ports(BaseWeb, unittest.TestCase):
 
         d = client.getPage("http://localhost:%d/remote/waterfall" % p.portnum)
         def _check(page):
-            self.failUnlessIn("BuildBot", page)
+            self.failUnlessIn("http://buildbot.net", page)
         d.addCallback(_check)
         def _done(res):
             d1 = p.shutdown()
@@ -228,27 +228,26 @@ class Waterfall(BaseWeb, unittest.TestCase):
         config1 = base_config + """
 from buildbot.changes import mail
 c['change_source'] = mail.SyncmailMaildirSource('my-maildir')
-c['status'] = [html.Waterfall(http_port=0, robots_txt=%s)]
-""" % repr(self.robots_txt)
+c['status'] = [html.WebStatus(http_port=0)]
+"""
 
         self.master = m = ConfiguredMaster("test_web4", config1)
         m.startService()
-        port = self.find_waterfall(m).getPortnum()
+        port = self.find_webstatus(m).getPortnum()
         self.port = port
         # insert an event
         m.change_svc.addChange(Change("user", ["foo.c"], "comments"))
 
-        d = client.getPage("http://localhost:%d/" % port)
+        d = client.getPage("http://localhost:%d/waterfall" % port)
 
         def _check1(page):
             self.failUnless(page)
             self.failUnlessIn("current activity", page)
             self.failUnlessIn("<html", page)
             TZ = time.tzname[time.localtime()[-1]]
-            self.failUnlessIn("time (%s)" % TZ, page)
+            self.failUnlessIn("(%s)" % TZ, page)
 
-            # phase=0 is really for debugging the waterfall layout
-            return client.getPage("http://localhost:%d/?phase=0" % self.port)
+            return client.getPage("http://localhost:%d/waterfall" % self.port)
         d.addCallback(_check1)
 
         def _check2(page):
@@ -259,15 +258,10 @@ c['status'] = [html.Waterfall(http_port=0, robots_txt=%s)]
         d.addCallback(_check2)
 
         def _check3(changes):
-            self.failUnlessIn("<li>Syncmail mailing list in maildir " +
-                              "my-maildir</li>", changes)
+            self.failUnlessIn("Syncmail mailing list in maildir " +
+                              "my-maildir", changes)
 
-            return client.getPage("http://localhost:%d/robots.txt" % self.port)
         d.addCallback(_check3)
-
-        def _check4(robotstxt):
-            self.failUnless(robotstxt == self.robots_txt_contents)
-        d.addCallback(_check4)
 
         return d
 
@@ -291,18 +285,31 @@ class WaterfallSteps(unittest.TestCase):
         s = setupBuildStepStatus("test_web.test_urls")
         s.addURL("coverage", "http://coverage.example.org/target")
         s.addURL("icon", "http://coverage.example.org/icon.png")
+
+
+        class FakeService:
+            import jinja2
+            templates = jinja2.Environment(loader=jinja2.PackageLoader('buildbot.status.web', 'templates'),
+                                       extensions=['jinja2.ext.i18n'],
+                                       trim_blocks=True)
+        
+        class FakeSite:
+            buildbot_service = FakeService()        
+        
         class FakeRequest:
+            site = FakeSite()
             prepath = []
             postpath = []
             def childLink(self, name):
                 return name
+
         req = FakeRequest()
         box = waterfall.IBox(s).getBox(req)
-        td = box.td()
+        text = box.td()['text']
         e1 = '[<a href="http://coverage.example.org/target" class="BuildStep external">coverage</a>]'
-        self.failUnlessSubstring(e1, td)
+        self.failUnlessSubstring(e1, text)
         e2 = '[<a href="http://coverage.example.org/icon.png" class="BuildStep external">icon</a>]'
-        self.failUnlessSubstring(e2, td)
+        self.failUnlessSubstring(e2, text)
 
 
 

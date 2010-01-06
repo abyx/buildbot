@@ -1,7 +1,7 @@
 \input texinfo @c -*-texinfo-*-
 @c %**start of header
 @setfilename buildbot.info
-@settitle BuildBot Manual 0.7.11
+@settitle BuildBot Manual 0.7.12
 @defcodeindex cs
 @defcodeindex sl
 @defcodeindex bf
@@ -22,7 +22,7 @@
 @copying
 This is the BuildBot manual.
 
-Copyright (C) 2005,2006 Brian Warner
+Copyright (C) 2005, 2006, 2009, 2010 Brian Warner
 
 Copying and distribution of this file, with or without
 modification, are permitted in any medium without royalty
@@ -5159,6 +5159,7 @@ arguments are described on the following pages.
 * Bzr::
 * P4::
 * Git::
+* BitKeeper::
 @end menu
 
 @node CVS, SVN, Source Checkout, Source Checkout
@@ -5587,7 +5588,7 @@ builder name. The default is "buildbot_%(slave)s_%(build)s".
 @end table
 
 
-@node Git,  , P4, Source Checkout
+@node Git, BitKeeper, P4, Source Checkout
 @subsubsection Git
 
 @cindex Git Checkout
@@ -5614,6 +5615,30 @@ branch will be used.
 @item ignore_ignores
 (optional): when purging changes, don't use .gitignore and
 .git/info/exclude.
+
+@end table
+
+
+@node BitKeeper, , Git, Source Checkout
+@subsubsection BitKeeper
+
+@cindex BitKeeper Checkout
+@bsindex buildbot.steps.source.BK
+
+The @code{BK} build step performs a @uref{http://www.bitkeeper.com/, BitKeeper} 
+checkout or update.
+
+The BitKeeper step takes the following arguments:
+
+@table @code
+@item repourl
+(required unless @code{baseURL} is provided): the URL at which the
+BitKeeper source repository is available.
+
+@item baseURL
+(required unless @code{repourl} is provided): the base repository URL,
+to which a branch name will be appended. It should probably end in a
+slash.
 
 @end table
 
@@ -8172,7 +8197,10 @@ def messageFormatter(name, build, results, master_status):
     logLines = 10
     text = list()
     text.append("STATUS: %s" % result.title())
-    return ("\n".join(text), 'plain')
+    return {
+        'body' : "\n".join(text), 
+        'type' : 'plain'
+    }
 
 mn = MailNotifier(fromaddr="buildbot@@example.org",
                   sendToInterestedUsers=False,
@@ -8258,9 +8286,10 @@ This is a optional function that can be used to generate a custom mail message.
 A @code{messageFormatter} function takes the mail mode (@code{mode}), builder
 name (@code{name}), the build status (@code{build}), the result code
 (@code{results}), and the BuildMaster status (@code{master_status}).  It
-returns a tuple of strings. The first string is the complete text of the
-message and the second is the message type ('plain' or 'html'). The 'html' type
-should be used when generating an HTML message.
+returns a dictionary. The @code{body} key gives a string that is the complete
+text of the message. The @code{type} key is the message type ('plain' or
+'html'). The 'html' type should be used when generating an HTML message.  The
+@code{subject} key is optional, but gives the subject for the email.
 
 @item extraHeaders
 (dictionary) A dictionary containing key/value pairs of extra headers to add
@@ -8823,6 +8852,14 @@ the Builder names:
 
 @example
 try_builders = ["full-OSX", "full-win32", "full-linux"]
+@end example
+
+If you are using the PB approach, you can get the names of the builders
+that are configured for the try scheduler using the @code{get-builder-names}
+argument:
+
+@example
+buildbot try --get-builder-names --connect=pb --master=... --username=... --passwd=...
 @end example
 
 @heading specifying the VC system
